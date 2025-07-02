@@ -5,6 +5,8 @@ const path = require('path');
 const crypto = require('crypto').webcrypto;
 const cp = require('child_process');
 
+const host = req.get('host');
+
 const router = express.Router();
 
 const rateLimits = new Map();
@@ -128,9 +130,9 @@ router.post("/fh",
             }
             url = "/" + url;
 
-            let result = `${f.originalname}: <a href="${url}">http://${req.get('host')}${url}</a>`;
+            let result = `${f.originalname}: <a href="${url}">http://${host}${url}</a>`;
             if (f.originalname.endsWith('.jar')) {
-                result += `, jad: <a href="${url}.jad">http://${req.get('host')}${url}.jad</a>`
+                result += `, jad: <a href="${url}.jad">http://${host}${url}.jad</a>`
             }
             return result;
         })
@@ -198,11 +200,11 @@ router.get("/[adgjmptw]{6}.jad", findFileFromID, (req, res) => {
         .toString()
         .replace(
             /^MIDlet-Jar-URL: \w{6}$/gm,
-            `MIDlet-Jar-URL: http://${req.get('host')}/${req.fileID}.jar`
+            `MIDlet-Jar-URL: http://${host}/${req.fileID}.jar`
         )
         .replace(
             /^MIDlet-Info-URL: .*?$/gm,
-            `MIDlet-Info-URL: http://${req.get('host')}`
+            `MIDlet-Info-URL: http://${host}`
         )
         // fix malformed jad created by jadmaker with missing newline
         .replace(

@@ -17,6 +17,7 @@ DP File Host contains some basic measures to prevent abuse - for each upload, th
 * Open a terminal/command prompt in this project's folder.
 * Run `npm i` to install the dependencies for the project.
 * Optional (for generating JAD files from JARs): Install `gammu` which provides the `jadmaker` command. For example on Debian/Ubuntu: `sudo apt install gammu`.
-* Change the port number in `index.js` if necessary (the default is 3000).
+* If necessary, change the port number in `index.js` (the default is 3000).
+* If necessary, change the host variable near the beginning of `filehost.js` to your domain name, for example `const host = "gtrxac.fi";` (this should be auto-detected correctly unless you use a reverse proxy).
 * Run `node .` to start the server.
   * *(or if you have an existing Express.js server and you want to hook up DP File Host to it, you can use something like `app.use("/", require("./filehost"))` in your server's code)*
