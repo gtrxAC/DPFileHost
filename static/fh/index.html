@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DP File Host</title>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+        }
+        .uploadArea {
+            margin: 1em;
+        }
+        .uploadAreaInner {
+            padding: 1em;
+            border: solid thin gray;
+            border-radius: 0.5em;
+        }
+        .uploadButton {
+            padding: 0.1em 1em;
+            margin-top: 0.5em;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <h1>The Dumbphone File Host</h1>
+        <p>up to 10 MB<br/>files expire after 1 hour</p>
+    </div>
+    <form action="/fh" method="post" enctype="multipart/form-data" class="uploadForm">
+        <div class="uploadArea">
+            <span class="uploadAreaInner">
+                <input type="file" name="file" id="file" multiple>
+            </span>
+        </div>
+        <input type="submit" value="Upload" class="uploadButton">
+    </form>
+</body>
+</html>
