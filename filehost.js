@@ -5,7 +5,10 @@ const path = require('path');
 const crypto = require('crypto').webcrypto;
 const cp = require('child_process');
 
-const host = req.get('host');
+function getHost(req, res, next) {
+    res.locals.host = req.get('host');  // you can replace this with your own domain if necessary
+    next();
+}
 
 const router = express.Router();
 
@@ -77,6 +80,7 @@ const upload = multer({
 
 router.post("/fh",
     upload.array('file', 10),
+    getHost,
 
     (err, req, res, next) => {
         if (err.code == 'LIMIT_UNEXPECTED_FILE') {
@@ -130,9 +134,9 @@ router.post("/fh",
             }
             url = "/" + url;
 
-            let result = `${f.originalname}: <a href="${url}">http://${host}${url}</a>`;
+            let result = `${f.originalname}: <a href="${url}">http://${res.locals.host}${url}</a>`;
             if (f.originalname.endsWith('.jar')) {
-                result += `, jad: <a href="${url}.jad">http://${host}${url}.jad</a>`
+                result += `, jad: <a href="${url}.jad">http://${res.locals.host}${url}.jad</a>`
             }
             return result;
         })
@@ -181,7 +185,7 @@ router.get("/[adgjmptw]{6}", findFileFromID, (req, res) => {
 });
 
 // File ID and extension ".jad" supplied: generate and send JAD that corresponds to the JAR
-router.get("/[adgjmptw]{6}.jad", findFileFromID, (req, res) => {
+router.get("/[adgjmptw]{6}.jad", getHost, findFileFromID, (req, res) => {
     if (!/\.jar_\w{6}_\d+$/.test(req.fileName)) {
         res.status(400).send("Not a JAR file");
         return;
@@ -200,11 +204,11 @@ router.get("/[adgjmptw]{6}.jad", findFileFromID, (req, res) => {
         .toString()
         .replace(
             /^MIDlet-Jar-URL: \w{6}$/gm,
-            `MIDlet-Jar-URL: http://${host}/${req.fileID}.jar`
+            `MIDlet-Jar-URL: http://${res.locals.host}/${req.fileID}.jar`
         )
         .replace(
             /^MIDlet-Info-URL: .*?$/gm,
-            `MIDlet-Info-URL: http://${host}`
+            `MIDlet-Info-URL: http://${res.locals.host}`
         )
         // fix malformed jad created by jadmaker with missing newline
         .replace(
