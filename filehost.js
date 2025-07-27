@@ -132,6 +132,9 @@ router.post("/fh",
             if (f.originalname.toLowerCase().endsWith('.nth')) {
                 url += ".nth";
             }
+            else if (f.originalname.toLowerCase().endsWith('.thm')) {
+                url += ".thm";
+            }
             url = "/" + url;
 
             let result = `${f.originalname}: <a href="${url}">http://${res.locals.host}${url}</a>`;
@@ -174,6 +177,9 @@ function downloadFile(req, res, outName) {
     // Similar content type mappings may have to be done for other less common file types.
     if (outName.toLowerCase().endsWith('.nth')) {
         res.set("Content-Type", "application/vnd.nok-s40theme");
+    }
+    else if (outName.toLowerCase().endsWith('.thm')) {
+        res.set("Content-Type", "application/vnd.eri.thm");
     }
     res.sendFile(outName, () => fs.rmSync(outName));
 }
