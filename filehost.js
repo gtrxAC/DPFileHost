@@ -116,6 +116,8 @@ router.post("/fh",
             return;
         }
 
+        let hasJars = false;
+
         res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -139,11 +141,15 @@ router.post("/fh",
 
             let result = `${f.originalname}: <a href="${url}">http://${res.locals.host}${url}</a>`;
             if (f.originalname.endsWith('.jar')) {
-                result += `, jad: <a href="${url}.jad">http://${res.locals.host}${url}.jad</a>`
+                result += `, jad: <a href="${url}.jad">http://${res.locals.host}${url}.jad</a>, signed: <a href="${url}.sjad">http://${res.locals.host}${url}.sjad</a>`;
+                hasJars = true;
             }
             return result;
         })
         .join('<br/>')
+    }
+    ${
+        hasJars ? `<br/><br/>Experimental: installing the <i>signed</i> version may allow for elevated app permissions if your device has the Darkman certificate installed (<a href="/fh/cert">http://${res.locals.host}/fh/cert</a>).<br/>Installing the certificate may not be possible on all devices.` : ""
     }
     </code>
 </body>
@@ -190,8 +196,7 @@ router.get("/[adgjmptw]{6}", findFileFromID, (req, res) => {
     downloadFile(req, res, name);
 });
 
-// File ID and extension ".jad" supplied: generate and send JAD that corresponds to the JAR
-router.get("/[adgjmptw]{6}.jad", getHost, findFileFromID, (req, res) => {
+function generateJad(req, res, next) {
     if (!/\.jar_\w{6}_\d+$/.test(req.fileName)) {
         res.status(400).send("Not a JAR file");
         return;
@@ -206,7 +211,7 @@ router.get("/[adgjmptw]{6}.jad", getHost, findFileFromID, (req, res) => {
     }
     fs.rmSync(`/tmp/${req.fileID}`);
 
-    const content = fs.readFileSync(`/tmp/${req.fileID}.jad`)
+    const jadContent = fs.readFileSync(`/tmp/${req.fileID}.jad`)
         .toString()
         .replace(
             /^MIDlet-Jar-URL: \w{6}$/gm,
@@ -224,10 +229,43 @@ router.get("/[adgjmptw]{6}.jad", getHost, findFileFromID, (req, res) => {
 
     fs.rmSync(`/tmp/${req.fileID}.jad`);
 
-    const outFileName = "/tmp/" + req.fileName.split('_').slice(0, -2).join('_').replace(/\.jar$/, '.jad');
-    fs.writeFileSync(outFileName, content);
-    res.sendFile(outFileName, (err) => {
-        if (!err) fs.rmSync(outFileName);
+    if (!jadContent.includes("MIDlet-1")) {
+        res.status(500).send("Cannot generate a JAD file because the JAR file's manifest is invalid or was not found.<br/>Check that the manifest file exists in META-INF/MANIFEST.MF (case-sensitive). You may also try downloading the JAR directly.")
+    }
+
+    res.locals.jadName = "/tmp/" + req.fileName.split('_').slice(0, -2).join('_').replace(/\.jar$/, '.jad');
+    fs.writeFileSync(res.locals.jadName, jadContent);
+    next();
+}
+
+// File ID and extension ".jad" supplied: generate and send JAD that corresponds to the JAR
+router.get("/[adgjmptw]{6}.jad", getHost, findFileFromID, generateJad, (req, res) => {
+    res.sendFile(res.locals.jadName, (err) => {
+        if (!err) fs.rmSync(res.locals.jadName);
+    });
+})
+
+// File ID and extension ".sjad" supplied: generate, sign, and send JAD that corresponds to the JAR
+router.get("/[adgjmptw]{6}.sjad", getHost, findFileFromID, generateJad, (req, res) => {
+    try {
+        cp.execFileSync('java', ['-jar', 'JadTool.jar', '-addcert', '-alias', 'exp', '-storepass', '14111989', '-keystore', 'key.ks', '-inputjad', res.locals.jadName, '-outputjad', res.locals.jadName]);
+        cp.execFileSync('java', ['-jar', 'JadTool.jar', '-addjarsig', '-alias', 'exp', '-storepass', '14111989', '-keystore', 'key.ks', '-inputjad', res.locals.jadName, '-outputjad', res.locals.jadName, '-jarfile', uploadDir + "/" + req.fileName, '-keypass', '14111989']);
+    }
+    catch (e) {
+        e = e.toString();
+        if (e.includes("ENOENT")) {
+            res.status(500).send("This instance does not have Java installed, which is required for downloading signed JADs.");
+        }
+        else if (e.includes("Error parsing input JAD")) {
+            res.status(500).send("The JAR file's manifest is not correctly formatted for the signing tool.")
+        }
+        else {
+            res.status(500).send(e.replace(/\-addcert .*?$/gm, "[...]").replace(/\n/g, "<br/>"));
+        }
+    }
+
+    res.sendFile(res.locals.jadName, (err) => {
+        if (!err) fs.rmSync(res.locals.jadName);
     });
 })
 
