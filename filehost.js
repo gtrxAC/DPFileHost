@@ -3,7 +3,7 @@ const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto').webcrypto;
-const cp = require('child_process');
+const jadmaker2 = require('./jadmaker2');
 
 function getHost(req, res, next) {
     res.locals.host = req.get('host');  // you can replace this with your own domain if necessary
@@ -196,78 +196,47 @@ router.get("/[adgjmptw]{6}", findFileFromID, (req, res) => {
     downloadFile(req, res, name);
 });
 
-function generateJad(req, res, next) {
-    if (!/\.jar_\w{6}_\d+$/.test(req.fileName)) {
-        res.status(400).send("Not a JAR file");
-        return;
+function generateJad(sign) {
+    return (req, res) => {
+        // If the file is already a jad
+        if (/\.jad_\w{6}_\d+$/.test(req.fileName)) {
+            if (sign) {
+                // Need to sign: we can't sign a jad without a jar
+                res.status(400).send("Cannot generate a signed JAD without a JAR");
+            } else {
+                // No need to sign: send the jad directly
+                downloadFile(req, res, req.path.slice(1));
+            }
+            return;
+        }
+        
+        // File is not a jar (and not a jad), can't do anything with it
+        if (!/\.jar_\w{6}_\d+$/.test(req.fileName)) {
+            res.status(400).send("Not a JAR file");
+            return;
+        }
+
+        const jadName = "/tmp/" + req.fileName.split('_').slice(0, -2).join('_').replace(/\.jar$/, '.jad');
+
+        jadmaker2.createJadFromJar(
+            uploadDir + "/" + req.fileName,
+            jadName,
+            `http://${res.locals.host}/${req.fileID}.jar`,
+            `http://${res.locals.host}`,
+            sign
+        );
+
+        res.sendFile(jadName, (err) => {
+            if (!err) fs.rmSync(jadName);
+        });
     }
-
-    fs.cpSync(uploadDir + "/" + req.fileName, `/tmp/${req.fileID}`)
-    try {
-        cp.execFileSync('jadmaker', [`/tmp/${req.fileID}`]);
-    }
-    catch (e) {
-        res.status(500).send("Failed to run 'jadmaker'. This instance probably does not have the 'jadmaker' command installed, which is required for downloading JAD files.");
-    }
-    fs.rmSync(`/tmp/${req.fileID}`);
-
-    const jadContent = fs.readFileSync(`/tmp/${req.fileID}.jad`)
-        .toString()
-        .replace(
-            /^MIDlet-Jar-URL: \w{6}$/gm,
-            `MIDlet-Jar-URL: http://${res.locals.host}/${req.fileID}.jar`
-        )
-        .replace(
-            /^MIDlet-Info-URL: .*?$/gm,
-            `MIDlet-Info-URL: http://${res.locals.host}`
-        )
-        // fix malformed jad created by jadmaker with missing newline
-        .replace(
-            /([^\n])MIDlet-Jar-Size: /gm,
-            `$1\nMIDlet-Jar-Size: `
-        )
-
-    fs.rmSync(`/tmp/${req.fileID}.jad`);
-
-    if (!jadContent.includes("MIDlet-1")) {
-        res.status(500).send("Cannot generate a JAD file because the JAR file's manifest is invalid or was not found.<br/>Check that the manifest file exists in META-INF/MANIFEST.MF (case-sensitive). You may also try downloading the JAR directly.")
-    }
-
-    res.locals.jadName = "/tmp/" + req.fileName.split('_').slice(0, -2).join('_').replace(/\.jar$/, '.jad');
-    fs.writeFileSync(res.locals.jadName, jadContent);
-    next();
 }
 
 // File ID and extension ".jad" supplied: generate and send JAD that corresponds to the JAR
-router.get("/[adgjmptw]{6}.jad", getHost, findFileFromID, generateJad, (req, res) => {
-    res.sendFile(res.locals.jadName, (err) => {
-        if (!err) fs.rmSync(res.locals.jadName);
-    });
-})
+router.get("/[adgjmptw]{6}.jad", getHost, findFileFromID, generateJad(false));
 
 // File ID and extension ".sjad" supplied: generate, sign, and send JAD that corresponds to the JAR
-router.get("/[adgjmptw]{6}.sjad", getHost, findFileFromID, generateJad, (req, res) => {
-    try {
-        cp.execFileSync('java', ['-jar', 'JadTool.jar', '-addcert', '-alias', 'exp', '-storepass', '14111989', '-keystore', 'key.ks', '-inputjad', res.locals.jadName, '-outputjad', res.locals.jadName]);
-        cp.execFileSync('java', ['-jar', 'JadTool.jar', '-addjarsig', '-alias', 'exp', '-storepass', '14111989', '-keystore', 'key.ks', '-inputjad', res.locals.jadName, '-outputjad', res.locals.jadName, '-jarfile', uploadDir + "/" + req.fileName, '-keypass', '14111989']);
-    }
-    catch (e) {
-        e = e.toString();
-        if (e.includes("ENOENT")) {
-            res.status(500).send("This instance does not have Java installed, which is required for downloading signed JADs.");
-        }
-        else if (e.includes("Error parsing input JAD")) {
-            res.status(500).send("The JAR file's manifest is not correctly formatted for the signing tool.")
-        }
-        else {
-            res.status(500).send(e.replace(/\-addcert .*?$/gm, "[...]").replace(/\n/g, "<br/>"));
-        }
-    }
-
-    res.sendFile(res.locals.jadName, (err) => {
-        if (!err) fs.rmSync(res.locals.jadName);
-    });
-})
+router.get("/[adgjmptw]{6}.sjad", getHost, findFileFromID, generateJad(true));
 
 // File ID and any other file extension supplied: download file with custom file name
 router.get("/[adgjmptw]{6}\\.\\w+", findFileFromID, (req, res) => {
