@@ -1,8 +1,9 @@
 const fs = require('fs');
 const crypto = require("crypto");
 const AdmZip = require("adm-zip");
+const path = require('path');
 
-const privateKey = fs.readFileSync("./exp.pem", "utf8");
+const privateKey = fs.readFileSync(path.join(__dirname, "exp.pem"), "utf8");
 
 function createJadFromJar(path, outPath, jarUrl, infoUrl, sign) {
     const zip = new AdmZip(path);

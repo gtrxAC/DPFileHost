@@ -16,7 +16,7 @@ const rateLimits = new Map();
 
 const uploadDir = path.join(__dirname, 'uploads');
 try {
-    fs.mkdirSync('uploads');
+    fs.mkdirSync(uploadDir);
 }
 catch (e) {}
 
