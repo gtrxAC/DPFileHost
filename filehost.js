@@ -243,4 +243,28 @@ router.get("/[adgjmptw]{6}\\.\\w+", findFileFromID, (req, res) => {
     downloadFile(req, res, req.path.slice(1));
 });
 
+// File ID and /d supplied: send a HTML page that has download links for the file (and for the JAD if it's a JAR)
+// for e.g. NEC e616
+router.get("/[adgjmptw]{6}/d", findFileFromID, (req, res) => {
+    const isJar = /\.jar_\w{6}_\d+$/.test(req.fileName);
+
+    const downloadLinks = isJar ?
+        `<p><a href="/${req.fileID}.jar">Download JAR</a></p>
+        <p><a href="/${req.fileID}.jad">Download JAD</a></p>` :
+
+        `<p><a href="/${req.fileID}">Download file</a></p>`;
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download ${res.locals.fileID}</title>
+</head>
+<body>
+    ${downloadLinks}
+</body>
+</html>`);
+})
+
 module.exports = router;
