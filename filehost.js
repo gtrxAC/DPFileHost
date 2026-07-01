@@ -117,6 +117,13 @@ router.post("/fh",
         }
 
         let hasJars = false;
+        const expireAt = new Date();
+        expireAt.setHours(new Date().getHours() + 1);
+        
+        const twoDigit = (n) => n.toString().length == 1 ? '0' + n : n;
+        const expireHours = twoDigit(expireAt.getUTCHours());
+        const expireMins = twoDigit(expireAt.getUTCMinutes());
+        const expireSecs = twoDigit(expireAt.getUTCSeconds());
 
         res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -149,8 +156,11 @@ router.post("/fh",
         .join('<br/>')
     }
     ${
-        hasJars ? `<br/><br/>Experimental: installing the <i>signed</i> version may allow for elevated app permissions if your device has the Darkman certificate installed (<a href="/fh/cert">http://${res.locals.host}/fh/cert</a>).<br/>Installing the certificate may not be possible on all devices.` : ""
+        hasJars ? `<br/><br/>Install the <i>signed</i> version for elevated app permissions if your device has the Darkman certificate installed. See guides for <a href="https://gtrxac.fi/j2me/proxyless#s40">Nokia S40</a> and <a href="https://gtrxac.fi/j2me/proxyless#se">Sony Ericsson</a>.<br/>The guides are intended for Discord J2ME but the methods also apply to other apps. Certificate installation is also possible on older Sony Ericsson devices.` : ""
     }
+    <br/>
+    <br/>
+    ${req.files.length != 1 ? "Files expire" : "File expires"} at ${expireHours}:${expireMins}:${expireSecs} (UTC).
     </code>
 </body>
 </html>`)
@@ -259,7 +269,7 @@ router.get("/[adgjmptw]{6}/d", findFileFromID, (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Download ${res.locals.fileID}</title>
+    <title>Download ${req.fileID}</title>
 </head>
 <body>
     ${downloadLinks}
